@@ -1,35 +1,40 @@
-"""authentik API AppConfig"""
+"""authentik oauth_client config"""
+from structlog.stdlib import get_logger
 
-from django.apps import AppConfig
+from authentik.blueprints.apps import ManagedAppConfig
+
+LOGGER = get_logger()
+
+AUTHENTIK_SOURCES_OAUTH_TYPES = [
+    "authentik.sources.oauth.types.apple",
+    "authentik.sources.oauth.types.azure_ad",
+    "authentik.sources.oauth.types.discord",
+    "authentik.sources.oauth.types.facebook",
+    "authentik.sources.oauth.types.github",
+    "authentik.sources.oauth.types.google",
+    "authentik.sources.oauth.types.oidc",
+    "authentik.sources.oauth.types.okta",
+    "authentik.sources.oauth.types.reddit",
+    "authentik.sources.oauth.types.twitter",
+    "authentik.sources.oauth.types.mailcow",
+    "authentik.sources.oauth.types.twitch",
+    "authentik.sources.oauth.types.patreon",
+]
 
 
-class AuthentikAPIConfig(AppConfig):
-    """authentik API Config"""
+class AuthentikSourceOAuthConfig(ManagedAppConfig):
+    """authentik source.oauth config"""
 
-    name = "authentik.api"
-    label = "authentik_api"
-    mountpoint = "api/"
-    verbose_name = "authentik API"
+    name = "authentik.sources.oauth"
+    label = "authentik_sources_oauth"
+    verbose_name = "authentik Sources.OAuth"
+    mountpoint = "source/oauth/"
+    default = True
 
-    def ready(self) -> None:
-        from drf_spectacular.extensions import OpenApiAuthenticationExtension
-
-        from authentik.api.authentication import TokenAuthentication
-
-        # Class is defined here as it needs to be created early enough that drf-spectacular will
-        # find it, but also won't cause any import issues
-        # pylint: disable=unused-variable
-        class TokenSchema(OpenApiAuthenticationExtension):
-            """Auth schema"""
-
-            target_class = TokenAuthentication
-            name = "authentik"
-
-            def get_security_definition(self, auto_schema):
-                """Auth schema"""
-                return {
-                    "type": "apiKey",
-                    "in": "header",
-                    "name": "Authorization",
-                    "scheme": "bearer",
-                }
+    def reconcile_sources_loaded(self):
+        """Load source_types from config file"""
+        for source_type in AUTHENTIK_SOURCES_OAUTH_TYPES:
+            try:
+                self.import_module(source_type)
+            except ImportError as exc:
+                LOGGER.warning("Failed to load OAuth Source", exc=exc)
